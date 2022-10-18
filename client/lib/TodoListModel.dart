@@ -75,4 +75,90 @@ class TodoListModel extends ChangeNotifier {
     _todos = _contract!.function("todos");
     await getTodos();
   }
+
+  //すべてのto-do項目を取得してリストに追加する。
+  getTodos() async {
+    List totalTaskList = await _client!
+        .call(contract: _contract!, function: _taskCount!, params: []);
+
+    BigInt totalTask = totalTaskList[0];
+    taskCount = totalTask.toInt();
+    todos.clear();
+    for (var i = 0; i < totalTask.toInt(); i++) {
+      var temp = await _client!.call(
+          contract: _contract!, function: _todos!, params: [BigInt.from(i)]);
+      if (temp[1] != "")
+        todos.add(
+          Task(
+            id: (temp[0] as BigInt).toInt(),
+            taskName: temp[1],
+            isCompleted: temp[2],
+          ),
+        );
+    }
+    isLoading = false;
+    todos = todos.reversed.toList();
+
+    notifyListeners();
+  }
+
+  //1.to-doを作成する機能
+  addTask(String taskNameData) async {
+    isLoading = true;
+    notifyListeners();
+    await _client!.sendTransaction(
+      _credentials!,
+      Transaction.callContract(
+        contract: _contract!,
+        function: _createTask!,
+        parameters: [taskNameData],
+      ),
+    );
+    await getTodos();
+  }
+
+  //2.to-doを更新する機能
+  updateTask(int id, String taskNameData) async {
+    isLoading = true;
+    notifyListeners();
+    await _client!.sendTransaction(
+      _credentials!,
+      Transaction.callContract(
+        contract: _contract!,
+        function: _updateTask!,
+        parameters: [BigInt.from(id), taskNameData],
+      ),
+    );
+    await getTodos();
+  }
+
+  //3.to-doの完了・未完了を切り替える機能
+  toggleComplete(int id) async {
+    isLoading = true;
+    notifyListeners();
+    await _client!.sendTransaction(
+      _credentials!,
+      Transaction.callContract(
+        contract: _contract!,
+        function: _toggleComplete!,
+        parameters: [BigInt.from(id)],
+      ),
+    );
+    await getTodos();
+  }
+
+  //4.to-doを削除する機能
+  deleteTask(int id) async {
+    isLoading = true;
+    notifyListeners();
+    await _client!.sendTransaction(
+      _credentials!,
+      Transaction.callContract(
+        contract: _contract!,
+        function: _deleteTask!,
+        parameters: [BigInt.from(id)],
+      ),
+    );
+    await getTodos();
+  }
 }
