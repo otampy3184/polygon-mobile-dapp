@@ -16,7 +16,7 @@ class TodoListModel extends ChangeNotifier {
 
   //自分のPRIVATE_KEYを追加してください。
   final String _privateKey =
-      "YOUR_PRIVATE_KEY";
+      "c92735f0c0c07d61fc95afc9a90338acc455a3dd91e0a177a2ec9b438af3f283";
 
   Web3Client? _client;
   String? _abiCode;
@@ -32,4 +32,47 @@ class TodoListModel extends ChangeNotifier {
   ContractFunction? _updateTask;
   ContractFunction? _deleteTask;
   ContractFunction? _toggleComplete;
+
+  TodoListModel() {
+    init();
+  }
+
+  Future<void> init() async {
+    _client = Web3Client(_rpcUrl, Client(), socketConnector: () {
+      return IOWebSocketChannel.connect(_wsUrl).cast<String>();
+    });
+
+    await getAbi();
+    await getCredentials();
+    await getDeployedContract();
+  }
+
+  //スマートコントラクトの`ABI`を取得し、デプロイされたコントラクトのアドレスを取り出す。
+  Future<void> getAbi() async {
+    String abiStringFile =
+        await rootBundle.loadString("smartcontract/TodoContract.json");
+    var jsonAbi = jsonDecode(abiStringFile);
+    _abiCode = jsonEncode(jsonAbi["abi"]);
+    _contractAddress =
+        EthereumAddress.fromHex(jsonAbi["networks"]["5777"]["address"]);
+  }
+
+  //秘密鍵を渡して`Credentials`クラスのインスタンスを生成する。
+  Future<void> getCredentials() async {
+    _credentials = await _client!.credentialsFromPrivateKey(_privateKey);
+    _ownAddress = await _credentials!.extractAddress();
+  }
+
+  //`_abiCode`と`_contractAddress`を使用して、スマートコントラクトのインスタンスを作成する。
+  Future<void> getDeployedContract() async {
+    _contract = DeployedContract(
+        ContractAbi.fromJson(_abiCode!, "TodoList"), _contractAddress!);
+    _taskCount = _contract!.function("taskCount");
+    _updateTask = _contract!.function("updateTask");
+    _createTask = _contract!.function("createTask");
+    _deleteTask = _contract!.function("deleteTask");
+    _toggleComplete = _contract!.function("toggleComplete");
+    _todos = _contract!.function("todos");
+    await getTodos();
+  }
 }
